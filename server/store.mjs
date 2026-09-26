@@ -18,11 +18,11 @@ function text(value, name, max = 160, required = true) {
     throw new Problem(400, `${name} must be ${required ? 'nonempty text' : 'text'} up to ${max} characters.`);
   return value.trim();
 }
-function date(value) {
+function date(value, field = 'Follow-up') {
   if (value === '' || value === null) return null;
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
       Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)
-    throw new Problem(400, 'Follow-up must be a valid YYYY-MM-DD date.');
+    throw new Problem(400, `${field} must be a valid YYYY-MM-DD date.`);
   return value;
 }
 export function openStore(path = ':memory:') {
@@ -40,7 +40,14 @@ export function openStore(path = ':memory:') {
       kind TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL
     ) STRICT;
     CREATE INDEX IF NOT EXISTS events_application ON events(application_id, id);
-    PRAGMA user_version=1;`);
+    `);
+  // Additive, transactional migration preserves existing opportunities and events.
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    if (!db.prepare('PRAGMA table_info(applications)').all().some(column => column.name === 'deadline'))
+      db.exec('ALTER TABLE applications ADD COLUMN deadline TEXT');
+    db.exec('PRAGMA user_version=2; COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); db.close(); throw error; }
   function transaction(fn) {
     db.exec('BEGIN IMMEDIATE');
     try { const result = fn(); db.exec('COMMIT'); return result; }
@@ -74,10 +81,11 @@ export function openStore(path = ':memory:') {
         if (!['https:', 'http:'].includes(parsed.protocol)) throw new Problem(400, 'Use an http or https job URL.');
       }
       const followUp = date(input.follow_up ?? null);
+      const deadline = date(input.deadline ?? null, 'Deadline');
       return transaction(() => {
         const id = randomUUID(), now = new Date().toISOString();
-        db.prepare('INSERT INTO applications VALUES(?,?,?,?,?,?,?,1,?,?)')
-          .run(id, company, role, location, url, 'saved', followUp, now, now);
+        db.prepare('INSERT INTO applications(id,company,role,location,url,status,follow_up,version,created_at,updated_at,deadline) VALUES(?,?,?,?,?,?,?,1,?,?,?)')
+          .run(id, company, role, location, url, 'saved', followUp, now, now, deadline);
         event(id, 'created', 'Opportunity saved', now);
         return get(id);
       });
@@ -91,13 +99,15 @@ export function openStore(path = ':memory:') {
         if (status !== current.status && !transitions[current.status].includes(status))
           throw new Problem(422, `Cannot move from ${current.status} to ${status}.`);
         const followUp = Object.hasOwn(input, 'follow_up') ? date(input.follow_up) : current.follow_up;
+        const deadline = Object.hasOwn(input, 'deadline') ? date(input.deadline, 'Deadline') : current.deadline;
         const note = input.note === undefined ? '' : text(input.note, 'Note', 1500, false);
-        if (status === current.status && followUp === current.follow_up && !note) throw new Problem(400, 'No changes to save.');
+        if (status === current.status && followUp === current.follow_up && deadline === current.deadline && !note) throw new Problem(400, 'No changes to save.');
         const now = new Date().toISOString();
-        db.prepare('UPDATE applications SET status=?,follow_up=?,version=version+1,updated_at=? WHERE id=?')
-          .run(status, followUp, now, id);
+        db.prepare('UPDATE applications SET status=?,follow_up=?,deadline=?,version=version+1,updated_at=? WHERE id=?')
+          .run(status, followUp, deadline, now, id);
         if (status !== current.status) event(id, 'status', `${current.status} → ${status}`, now);
         if (followUp !== current.follow_up) event(id, 'follow_up', followUp ?? 'Cleared', now);
+        if (deadline !== current.deadline) event(id, 'deadline', deadline ?? 'Cleared', now);
         if (note) event(id, 'note', note, now);
         return get(id);
       });
@@ -105,7 +115,7 @@ export function openStore(path = ':memory:') {
   };
 }
 export function toCSV(rows) {
-  const columns = ['company', 'role', 'location', 'status', 'follow_up', 'url'];
+  const columns = ['company', 'role', 'location', 'status', 'follow_up', 'deadline', 'url'];
   const escape = value => {
     let v = String(value ?? '');
     if (/^[\s]*[=+@\-\t\r]/.test(v)) v = `'${v}`;
