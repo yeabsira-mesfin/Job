@@ -20,6 +20,7 @@ For development, run `npm run server` and `npm run dev` in separate terminals. V
 
 - Search and filter opportunities by company, role, location, and workflow stage.
 - Schedule follow-ups with a due queue using UTC calendar dates.
+- Track application deadlines separately, with overdue, today, and next-seven-day reminders for saved opportunities. Deadlines persist, appear in CSV, and have audited edits. Reminders are in-app only.
 - Move applications through validated stages. Skipping directly from saved to offer is rejected.
 - Record notes and stage/date changes in a chronological activity timeline.
 - Detect stale edits using integer versions and return an actionable conflict.
@@ -50,7 +51,7 @@ The Compose service uses a non-root process, a read-only root filesystem, a name
 
 ## Verification
 
-Six automated tests cover workflow rejection, audit ordering, version conflicts, input validation, restart persistence, CSV escaping, and HTTP responses. GitHub Actions runs the tests, frontend build, and container build on pushes and pull requests.
+Automated tests cover workflow rejection, audit ordering, version conflicts, input validation, restart persistence, CSV escaping, and HTTP responses. GitHub Actions runs the tests, frontend build, and container build on pushes and pull requests.
 
 ## Scope and provenance
 
