@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local application records
+/data/
+*.db
+*.db-shm
+*.db-wal
