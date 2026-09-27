@@ -1,3 +1,4 @@
+import { toCalendar } from './calendar.mjs';
 import { pathToFileURL } from 'node:url';
 import { openStore, toCSV, transitions, Problem } from './store.mjs';
 import { serve, body, json } from './http.mjs';
@@ -12,6 +13,10 @@ export function createApp(store, options) {
     if (req.method === 'GET' && path === '/api/export.csv') {
       res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="applications.csv"', 'Cache-Control': 'no-store' });
       return res.end(toCSV(store.list()));
+    }
+    if (req.method === 'GET' && path === '/api/export.ics') {
+      res.writeHead(200, { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': 'attachment; filename="application-deadlines.ics"', 'Cache-Control': 'no-store' });
+      return res.end(toCalendar(store.list()));
     }
     const match = path.match(/^\/api\/applications\/([a-f0-9-]{36})$/);
     if (match && req.method === 'GET') return json(res, 200, store.get(match[1]));

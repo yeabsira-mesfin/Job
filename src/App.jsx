@@ -37,7 +37,7 @@ export default function App() {
   const visible = rows.filter(row => (!filter || (filter === 'deadlines' ? reminders.some(r => r.id === row.id) : filter === 'due' ? overdue(row) : row.status === filter)) && `${row.company} ${row.role} ${row.location}`.toLowerCase().includes(query.toLowerCase()));
   const stats = [['Opportunities', rows.length], ['In progress', rows.filter(r => ['applied', 'interview', 'offer'].includes(r.status)).length], ['Follow-ups due', rows.filter(overdue).length], ['Offers received', rows.filter(r => ['offer', 'accepted'].includes(r.status)).length]];
   return <div className="shell">
-    <header><a className="brand" href="/">A<span>ApplyFlow</span></a><span className="tag">PERSONAL WORKSPACE</span><a className="export" href="/api/export.csv">Export CSV ↗</a></header>
+    <header><a className="brand" href="/">A<span>ApplyFlow</span></a><span className="tag">PERSONAL WORKSPACE</span><a className="export" href="/api/export.ics" download="application-deadlines.ics">Download deadlines (.ics) ↗</a><a className="export" href="/api/export.csv">Export CSV ↗</a></header>
     <main>
       <div className="heading"><div><p className="eyebrow">YOUR NEXT CHAPTER</p><h1>Make your next move.</h1><p>One place for opportunities, conversations, and follow-ups.</p></div><button onClick={() => setShowForm(!showForm)}>{showForm ? 'Close form' : '+ Save opportunity'}</button></div>
       <div className="stats">{stats.map(([name, value]) => <div className="stat" key={name}><span>{name}</span><strong>{value.toString().padStart(2, '0')}</strong></div>)}</div>
